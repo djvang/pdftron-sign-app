@@ -1,0 +1,72 @@
+{
+  "models": {
+    "Profile": {
+      "id": "kjzl6hvfrbw6c5gohiw93e3o8kb6v4uwb4pbonsawlf8qz0spp7gnhn26pj6uwm",
+      "accountRelation": { "type": "single" }
+    },
+    "Contract": {
+      "id": "kjzl6hvfrbw6cazwhi6yr04huygxp7szvzvxduxe93wyo8rlz62a6lwvj1ee4xu",
+      "accountRelation": { "type": "list" }
+    },
+    "ContractStep": {
+      "id": "kjzl6hvfrbw6c61luu0zt4aflw87e1dg0fyold01fr14i9co692gidselulasu3",
+      "accountRelation": { "type": "list" }
+    }
+  },
+  "objects": {
+    "Profile": {
+      "name": { "type": "string", "required": true },
+      "email": { "type": "string", "required": true }
+    },
+    "ContractSigners": { "address": { "type": "string", "required": true } },
+    "Contract": {
+      "name": { "type": "string", "required": true },
+      "xfdf": { "type": "string", "required": true },
+      "expiry": { "type": "datetime", "required": false },
+      "signers": {
+        "type": "list",
+        "required": true,
+        "item": {
+          "type": "reference",
+          "refType": "object",
+          "refName": "ContractSigners",
+          "required": true
+        }
+      },
+      "contractHash": { "type": "string", "required": true },
+      "version": { "type": "view", "viewType": "documentVersion" },
+      "initiator": { "type": "view", "viewType": "documentAccount" },
+      "steps": {
+        "type": "view",
+        "viewType": "relation",
+        "relation": {
+          "source": "queryConnection",
+          "model": "kjzl6hvfrbw6c61luu0zt4aflw87e1dg0fyold01fr14i9co692gidselulasu3",
+          "property": "contractID"
+        }
+      }
+    },
+    "ContractStep": {
+      "xfdf": { "type": "string", "required": true },
+      "contractID": { "type": "streamid", "required": true },
+      "contractHash": { "type": "string", "required": true },
+      "signer": { "type": "view", "viewType": "documentAccount" },
+      "version": { "type": "view", "viewType": "documentVersion" },
+      "contract": {
+        "type": "view",
+        "viewType": "relation",
+        "relation": {
+          "source": "document",
+          "model": "kjzl6hvfrbw6cazwhi6yr04huygxp7szvzvxduxe93wyo8rlz62a6lwvj1ee4xu",
+          "property": "contractID"
+        }
+      }
+    }
+  },
+  "enums": {},
+  "accountData": {
+    "profile": { "type": "node", "name": "Profile" },
+    "contractList": { "type": "connection", "name": "Contract" },
+    "contractStepList": { "type": "connection", "name": "ContractStep" }
+  }
+}

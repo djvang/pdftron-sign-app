@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { navigate } from '@reach/router';
+import { useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { navigate } from "@reach/router";
 import {
   Box,
   Button,
@@ -10,13 +10,13 @@ import {
   Table,
   Text,
   Toast,
-} from 'gestalt';
-import 'gestalt/dist/gestalt.css';
-import { addSignee, selectAssignees } from './AssignSlice';
+} from "gestalt";
+import "gestalt/dist/gestalt.css";
+import { addSignee, selectAssignees } from "./AssignSlice";
 
 const Assign = () => {
-  const [email, setEmail] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [showToast, setShowToast] = useState(false);
   const assignees = useSelector(selectAssignees);
   const dispatch = useDispatch();
@@ -32,10 +32,10 @@ const Assign = () => {
 
   const addUser = (name, email) => {
     const key = `${new Date().getTime()}${email}`;
-    if (name !== '' && email !== '') {
+    if (name !== "" && email !== "") {
       dispatch(addSignee({ key, name, email }));
-      setEmail('');
-      setDisplayName('');
+      setEmail("");
+      setDisplayName("");
     }
   };
 
@@ -49,7 +49,7 @@ const Assign = () => {
           <Box padding={2}>
             <TextField
               id="displayName"
-              onChange={event => setDisplayName(event.value)}
+              onChange={(event) => setDisplayName(event.value)}
               placeholder="Enter recipient's name"
               label="Name"
               value={displayName}
@@ -59,16 +59,16 @@ const Assign = () => {
           <Box padding={2}>
             <TextField
               id="email"
-              onChange={event => setEmail(event.value)}
-              placeholder="Enter recipient's email"
-              label="Email"
+              onChange={(event) => setEmail(event.value)}
+              placeholder="Enter recipient's address"
+              label="Address"
               value={email}
-              type="email"
+              type="text"
             />
           </Box>
           <Box padding={2}>
             <Button
-              onClick={event => {
+              onClick={(event) => {
                 addUser(displayName, email);
               }}
               text="Add user"
@@ -84,12 +84,12 @@ const Assign = () => {
                     <Text weight="bold">Name</Text>
                   </Table.HeaderCell>
                   <Table.HeaderCell>
-                    <Text weight="bold">Email</Text>
+                    <Text weight="bold">Address</Text>
                   </Table.HeaderCell>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {assignees.map(user => (
+                {assignees.map((user) => (
                   <Table.Row key={user.key}>
                     <Table.Cell>
                       <Text>{user.name}</Text>
@@ -110,8 +110,8 @@ const Assign = () => {
             dangerouslySetInlineStyle={{
               __style: {
                 bottom: 50,
-                left: '50%',
-                transform: 'translateX(-50%)',
+                left: "50%",
+                transform: "translateX(-50%)",
               },
             }}
             paddingX={1}
