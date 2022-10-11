@@ -1,13 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button, Table, Text, Spinner } from "gestalt";
 import "gestalt/dist/gestalt.css";
 import { useDispatch, useSelector } from "react-redux";
 import { searchForDocumentToSign } from "../../firebase/firebase";
 import { selectUser } from "../../firebase/firebaseSlice";
 import { setDocToSign } from "../SignDocument/SignDocumentSlice";
+import { setDocToView } from "../ViewDocument/ViewDocumentSlice";
 import { navigate } from "@reach/router";
 import { useQuery } from "@apollo/client";
 import { QUERY_CONTRACTS } from "../../composedb/composedb";
+
+const truncateAddress = (address, length = 6) => {
+  if (!address) return "No Account";
+  const reg = new RegExp(
+    `(0x[a-zA-Z0-9]{${length}})[a-zA-Z0-9]+([a-zA-Z0-9]{${length}})`
+  );
+  const match = address.match(reg);
+  if (!match) return address;
+  return `${match[1]}…${match[2]}`;
+};
 
 const SignList = () => {
   const user = useSelector(selectUser);
@@ -15,6 +26,7 @@ const SignList = () => {
 
   const [docs, setDocs] = useState([]);
   const [show, setShow] = useState(true);
+  const [isView, setIsView] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -27,11 +39,15 @@ const SignList = () => {
   useEffect(() => {
     async function getDocs() {
       const getContractsByUser = (contracts) =>
-        contracts?.filter((contract) =>
-          contract.node.signers?.filter(
-            ({ address }) =>
-              address?.toLowerCase() === user?.email?.toLowerCase()
-          )
+        contracts?.filter(
+          (contract) =>
+            contract.node.signers?.some(
+              ({ address }) =>
+                address?.toLowerCase() === user?.email?.toLowerCase()
+            ) ||
+            contract.node.initiator.id
+              ?.toLowerCase()
+              .endsWith(user?.email?.toLowerCase())
         );
 
       const mapContractsByStepsOfSigned = (contracts) =>
@@ -65,18 +81,18 @@ const SignList = () => {
           const steps = contract.node.steps?.edges?.map((edge) => edge.node);
           const signed =
             contract.node.signers.reduce((acc, signer) => {
-              const isSigned = steps.find((step) => {
+              const signed = steps.some((step) => {
                 return step?.signer?.id
                   ?.toLowerCase()
                   .endsWith(signer?.address?.toLowerCase());
               });
 
-              if (isSigned) {
-                return acc++;
+              if (signed) {
+                return ++acc;
               }
 
               return acc;
-            }, 0) > 0;
+            }, 0) === contract.node.signers.length;
 
           return {
             ...contract,
@@ -87,9 +103,9 @@ const SignList = () => {
           };
         });
 
-      const docsToSign = mapContractsByStatusOfSigned(
-        mapContractsByStepsOfSigned(
-          getContractsByUser(data.contractIndex.edges)
+      const docsToSign = getContractsByUser(
+        mapContractsByStatusOfSigned(
+          mapContractsByStepsOfSigned(data.contractIndex.edges)
         )
       );
 
@@ -106,13 +122,15 @@ const SignList = () => {
 
   console.log({ docs, user });
 
+  const filteredUnsignedDocs = docs?.filter((doc) => !doc.node.__signed);
+
   return (
     <div>
       {show ? (
         <Spinner show={show} accessibilityLabel="spinner" />
       ) : (
         <div>
-          {docs.length > 0 ? (
+          {filteredUnsignedDocs.length > 0 ? (
             <Table>
               <Table.Header>
                 <Table.Row>
@@ -120,36 +138,60 @@ const SignList = () => {
                     <Text weight="bold">From</Text>
                   </Table.HeaderCell>
                   <Table.HeaderCell>
-                    <Text weight="bold">When</Text>
+                    <Text weight="bold">Signers</Text>
                   </Table.HeaderCell>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {docs.map((doc) => {
+                {filteredUnsignedDocs.map((doc) => {
                   console.log({ doc });
 
+                  const userID = user.email.toLowerCase();
+
+                  const initiator = doc.node.initiator.id
+                    .toLowerCase()
+                    .endsWith(userID);
+
                   const signed = doc.node.signers.find(
-                    ({ address }) =>
-                      address.toLowerCase() === user.email.toLowerCase()
-                  )?.__signed;
+                    ({ address }) => address.toLowerCase() === userID
+                  );
+
+                  const isView =
+                    (initiator === true && !!signed === false) ||
+                    signed?.__signed;
 
                   return (
                     <Table.Row key={doc.node.id}>
                       <Table.Cell>
-                        <Text>{doc?.node?.initiator?.id}</Text>
+                        <Text>{truncateAddress(doc?.node?.initiator?.id)}</Text>
                       </Table.Cell>
                       <Table.Cell>
                         <Text>
-                          {doc?.requestedTime
+                          {/* {doc?.requestedTime
                             ? new Date(
                                 doc.requestedTime.seconds * 1000
                               ).toDateString()
-                            : ""}
+                            : ""} */}
+                          {doc.node.signers.map((signer) => (
+                            <Text key={signer.address}>
+                              {truncateAddress(signer.address)}:{" "}
+                              {signer.__signed ? "signed" : "unsigned"}
+                            </Text>
+                          ))}
                         </Text>
                       </Table.Cell>
                       <Table.Cell>
-                        {signed ? (
-                          <Button text="Signed" color="green" inline />
+                        {isView ? (
+                          <Button
+                            onClick={(event) => {
+                              const { id } = doc?.node;
+                              dispatch(setDocToView({ id }));
+                              navigate(`/viewDocument`);
+                            }}
+                            text="View"
+                            color="gray"
+                            inline
+                          />
                         ) : (
                           <Button
                             onClick={(event) => {
