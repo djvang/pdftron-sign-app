@@ -1,0 +1,16 @@
+type Contract
+  @loadModel(
+    id: "kjzl6hvfrbw6cazwhi6yr04huygxp7szvzvxduxe93wyo8rlz62a6lwvj1ee4xu"
+  ) {
+  id: ID!
+}
+
+type ContractStep
+  @createModel(accountRelation: LIST, description: "A step on a Contract") {
+  version: CommitID! @documentVersion
+  signer: DID! @documentAccount
+  contractHash: String! @string(minLength: 4, maxLength: 150)
+  xfdf: String! @string(minLength: 1, maxLength: 10000)
+  contractID: StreamID! @documentReference(model: "Contract")
+  contract: Contract! @relationDocument(property: "contractID")
+}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Box,
   Button,
@@ -8,26 +8,30 @@ import {
   Stack,
   Column,
   Heading,
-} from 'gestalt';
-import 'gestalt/dist/gestalt.css';
-import { auth } from '../../firebase/firebase';
-import { useSelector, useDispatch } from 'react-redux';
-import { selectUser, setUser } from '../../firebase/firebaseSlice';
-import { resetSignee } from '../Assign/AssignSlice';
-import { navigate, Link } from '@reach/router';
-import './Profile.css';
-
+} from "gestalt";
+import "gestalt/dist/gestalt.css";
+import { auth } from "../../firebase/firebase";
+import { useSelector, useDispatch } from "react-redux";
+import { selectUser, setUser } from "../../firebase/firebaseSlice";
+import { resetSignee } from "../Assign/AssignSlice";
+import { navigate, Link } from "@reach/router";
+import "./Profile.css";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
+
+  return null;
+
   const { displayName, photoURL, email } = user;
 
   return (
-    <Box display="flex" direction="row" paddingY={2} color={'lightGray'}>
+    <Box display="flex" direction="row" paddingY={2} color={"lightGray"}>
       <Column span={9}>
         <Box padding={3}>
-          <Link to="/" className='profileLink'><Heading size="lg">PDFTron Sign App</Heading></Link>
+          <Link to="/" className="profileLink">
+            <Heading size="lg">Sign App</Heading>
+          </Link>
         </Box>
       </Column>
       <Column span={3}>
@@ -45,8 +49,8 @@ const ProfilePage = () => {
                 onClick={() => {
                   auth.signOut();
                   dispatch(setUser(null));
-                  dispatch(resetSignee())
-                  navigate('/');
+                  dispatch(resetSignee());
+                  navigate("/");
                 }}
                 accessibilityLabel="Sign out of your account"
                 text="Sign out"
