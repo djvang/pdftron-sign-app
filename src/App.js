@@ -21,6 +21,7 @@ import { useCeramic } from "./ceramic/context";
 import { useCompose } from "./composedb/composedb";
 
 import { useQuery, useMutation, gql } from "@apollo/client";
+import { logout } from "./lit/lit";
 
 const NOTES_LIST_QUERY = gql`
   query NotesList($cursor: String) {
@@ -114,6 +115,28 @@ const App = () => {
   const handleGetNote = (id) => {
     setId(id);
   };
+
+  const dispatch = useDispatch();
+
+  const [{ wallet }, connecting] = useConnectWallet();
+  const address = wallet?.accounts?.[0];
+
+  console.log({ connecting, wallet });
+
+  useEffect(() => {
+    if (address) {
+      // dispatch(
+      //   setUser({
+      //     uid: address,
+      //     displayName: address,
+      //     email: address,
+      //     photoURL: "",
+      //   })
+      // );
+    } else {
+      logout();
+    }
+  }, [dispatch, address]);
 
   // const dispatch = useDispatch();
 

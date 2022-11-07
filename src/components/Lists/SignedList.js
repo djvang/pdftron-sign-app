@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Button, Table, Text, Spinner } from "gestalt";
+import {
+  Box,
+  Button,
+  Table,
+  Text,
+  Spinner,
+  Modal,
+  Flex,
+  Heading,
+  IconButton,
+  TextField,
+} from "gestalt";
+import { selectKey, setKey } from "../Assign/AssignSlice";
 import "gestalt/dist/gestalt.css";
 import { useSelector, useDispatch } from "react-redux";
 import { searchForDocumentsSigned } from "../../firebase/firebase";
@@ -19,7 +31,62 @@ const truncateAddress = (address, length = 6) => {
   return `${match[1]}…${match[2]}`;
 };
 
+function PasswordModal({ onClose, onSend }) {
+  const key = useSelector(selectKey);
+  const dispatch = useDispatch();
+
+  const handleKey = (event) => {
+    dispatch(setKey({ value: event.value }));
+  };
+
+  console.log({ key });
+
+  return (
+    <Modal
+      closeOnOutsideClick={onClose}
+      accessibilityModalLabel="Choose how to claim site"
+      align="start"
+      heading={
+        <Box padding={6}>
+          <Flex justifyContent="between">
+            <Heading size="500" accessibilityLevel={1}>
+              Decrypt Contract
+            </Heading>
+            <IconButton
+              accessibilityLabel="Dismiss modal"
+              bgColor="white"
+              icon="cancel"
+              iconColor="darkGray"
+              onClick={onClose}
+              size="sm"
+            />
+          </Flex>
+        </Box>
+      }
+      size="sm"
+      footer={
+        <Flex justifyContent="end" gap={2}>
+          <Button onClick={onClose} color="gray" text="Cancel" />
+          <Button onClick={onSend} color="red" text="Send" />
+        </Flex>
+      }
+    >
+      <Box padding={6}>
+        <Box marginBottom={4}>Input password to decrypt the contract.</Box>
+        <TextField
+          id="password"
+          onChange={handleKey}
+          placeholder="Enter password"
+          value={key}
+          type="password"
+        />
+      </Box>
+    </Modal>
+  );
+}
+
 const SignedList = () => {
+  const [showModal, setShowModal] = useState(false);
   const user = useSelector(selectUser);
   const { email } = user;
 
@@ -113,7 +180,7 @@ const SignedList = () => {
       setShow(false);
     }
 
-    if (user && !loading && data?.contractIndex?.edges?.length > 0) {
+    if (user && !loading && !error) {
       getDocs();
     }
   }, [user, loading, data]);
@@ -128,6 +195,16 @@ const SignedList = () => {
         <Spinner show={show} accessibilityLabel="spinner" />
       ) : (
         <div>
+          {showModal && (
+            <PasswordModal
+              key="modal-password"
+              onClose={() => setShowModal(false)}
+              onSend={() => {
+                setShowModal(false);
+                navigate(`/viewDocument`);
+              }}
+            />
+          )}
           {filteredSignedDocs.length > 0 ? (
             <Table>
               <Table.Header>
@@ -158,9 +235,15 @@ const SignedList = () => {
                     <Table.Cell>
                       <Button
                         onClick={(event) => {
+                          if (doc.node.encypted === 1) {
+                            setShowModal(true);
+                          } else {
+                            navigate(`/viewDocument`);
+                          }
+
+                          dispatch(setKey({ value: "" }));
                           const { id } = doc?.node;
                           dispatch(setDocToView({ id }));
-                          navigate(`/viewDocument`);
                         }}
                         text="View"
                         color="gray"

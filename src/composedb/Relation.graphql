@@ -1,13 +1,13 @@
 type ContractStep
   @loadModel(
-    id: "kjzl6hvfrbw6c61luu0zt4aflw87e1dg0fyold01fr14i9co692gidselulasu3"
+    id: "kjzl6hvfrbw6c8fdjvq6y0ydkxz81e7kut5arecx7mjw17139b1qusm99onbdfp"
   ) {
   id: ID!
 }
 
 type Contract
   @loadModel(
-    id: "kjzl6hvfrbw6cazwhi6yr04huygxp7szvzvxduxe93wyo8rlz62a6lwvj1ee4xu"
+    id: "kjzl6hvfrbw6c7kq50t8zb89fgthcb0qvfobtj5kp5t7z7rdi4rwi5sxv9j0jbm"
   ) {
   steps: [ContractStep]
     @relationFrom(model: "ContractStep", property: "contractID")

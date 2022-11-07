@@ -1,6 +1,7 @@
 import React from "react";
-import { Box, Column, Heading } from "gestalt";
+import { Flex, Box, Column, Heading } from "gestalt";
 import "gestalt/dist/gestalt.css";
+import SelectWallet from "../onboard/SelectWallet";
 
 const Header = () => {
   return (
@@ -10,6 +11,7 @@ const Header = () => {
           <Heading size="lg">Sign App</Heading>
         </Box>
       </Column>
+      <Column>{/* <SelectWallet /> */}</Column>
     </Box>
   );
 };

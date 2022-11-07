@@ -5,13 +5,18 @@ import {
   Box,
   Column,
   Heading,
-  Row,
-  Stack,
+  Flex as Row,
+  Flex as Stack,
   Text,
   Button,
   SelectList,
 } from "gestalt";
-import { selectAssignees, resetSignee } from "../Assign/AssignSlice";
+import {
+  selectAssignees,
+  resetSignee,
+  selectContractEncryption,
+  selectKey,
+} from "../Assign/AssignSlice";
 import { storage, addDocumentToSign } from "../../firebase/firebase";
 import { selectUser } from "../../firebase/firebaseSlice";
 import WebViewer from "@pdftron/webviewer";
@@ -20,6 +25,18 @@ import "./PrepareDocument.css";
 import { storeFiles } from "../../web3.storage/put-files";
 import { useMutation } from "@apollo/client";
 import { CREATE_CONTRACT } from "../../composedb/composedb";
+import { getEncryptedStringFromFile } from "../../crypto/cryptoJS";
+import cryptoJs from "crypto-js";
+import {
+  encryptFile,
+  encryptString,
+  generateAccessControlConditions,
+  getEncryptedStringFromFileLIT,
+} from "../../lit/lit";
+
+import LitJsSdk from "lit-js-sdk";
+
+const { blobToBase64String } = LitJsSdk;
 
 const PrepareDocument = () => {
   const [instance, setInstance] = useState(null);
@@ -30,6 +47,9 @@ const PrepareDocument = () => {
   });
 
   const dispatch = useDispatch();
+
+  const contractEncryption = useSelector(selectContractEncryption);
+  const key = useSelector(selectKey);
 
   const assignees = useSelector(selectAssignees);
   const assigneesValues = assignees.map((user) => {
@@ -44,6 +64,11 @@ const PrepareDocument = () => {
 
   const viewer = useRef(null);
   const filePicker = useRef(null);
+
+  console.log({ contractEncryption, key, assignees });
+  // 0x5A633e60af7B6b1bB3D59f6b3a94adAae93551d7 metamsk
+  // 0xD22bF0d04B72Ee47FeC2a3CADF4dA483F04fCb95 metamsk
+  // 0xA7EC01b4AAB4Cc8c1c101a87C275C08e7C4F2675 BN
 
   // if using a class, equivalent of componentDidMount
   useEffect(() => {
@@ -261,6 +286,13 @@ const PrepareDocument = () => {
   };
 
   const uploadForSigning = async () => {
+    let encryptionKey = ""; // AES encryption key
+    const passwordEncryption = contractEncryption === 1;
+
+    if (passwordEncryption) {
+      encryptionKey = key;
+    }
+
     // upload the PDF with fields as AcroForm
     // const storageRef = storage.ref();
     // const referenceString = `docToSign/${uid}${Date.now()}.pdf`;
@@ -271,7 +303,17 @@ const PrepareDocument = () => {
       widgets: true,
       fields: true,
     });
-    const data = await doc.getFileData({ xfdfString });
+
+    // options to get file data from pdfviewer
+    const options = {
+      flatten: false,
+      finishedWithDocument: false,
+      printDocument: false,
+      downloadType: "pdf",
+      includeAnnotations: false,
+    };
+
+    const data = await doc.getFileData(options);
     const arr = new Uint8Array(data);
     // const blob = new Blob([arr], { type: "application/pdf" });
     // docRef.put(blob).then(function (snapshot) {
@@ -279,8 +321,80 @@ const PrepareDocument = () => {
     // });
 
     const blob = new Blob([arr], { type: "application/pdf" });
+    let payload = null;
 
-    const files = [new File([blob], `${uid}${Date.now()}.pdf`)];
+    if (contractEncryption === 2) {
+      const recipients = assignees.map((assignee) => {
+        return assignee.email;
+      });
+
+      const { accessControlConditions } =
+        generateAccessControlConditions(recipients);
+
+      console.log({ recipients, accessControlConditions });
+
+      const encryptedFile = await encryptFile(blob, accessControlConditions);
+      const encryptedSignature = await encryptString(
+        xfdfString,
+        accessControlConditions
+      );
+
+      encryptedFile.encryptedFile = await blobToBase64String(
+        encryptedFile.encryptedFile
+      );
+
+      payload = {
+        // recipientKeys: recipientKeys,
+        fileStr: encryptedFile,
+        xfdfStr: encryptedSignature,
+        meta: {
+          version: "1.0", // increase the version when breaking changes introduced
+        },
+      };
+    }
+
+    if (contractEncryption === 0 || contractEncryption === 1) {
+      // encrypted file string
+      const encryptedFile = await getEncryptedStringFromFile(
+        blob,
+        encryptionKey
+      );
+      // encrypted signature string
+      const encryptedSignature = cryptoJs.AES.encrypt(
+        xfdfString,
+        encryptionKey
+      ).toString();
+
+      // payload to be uploaded on arweave via new storage service
+      // breaking changes introduced for one-tap encryption
+      // ver 4.1 indicates one-tap encryption breaking on payload
+      payload = {
+        // recipientKeys: recipientKeys,
+        fileStr: encryptedFile,
+        xfdfStr: encryptedSignature,
+        meta: {
+          version: "1.0", // increase the version when breaking changes introduced
+        },
+      };
+    }
+
+    console.log({ encryption: contractEncryption, payload });
+
+    // "Expecting Array type for parameter named accessControlConditions in Lit-JS-SDK function saveEncryptionKey(), but received "Object" type instead. value: {"accessControlConditions":[{"contractAddress":"","standardContractType":"","chain":"ethereum","method":"","parameters":[":userAddress"],"returnValueTest":{"comparator":"=","value":"0xD22bF0d04B72Ee47FeC2a3CADF4dA483F04fCb95"}},{"operator":"or"},{"contractAddress":"","standardContractType":"","chain":"ethereum","method":"","parameters":[":userAddress"],"returnValueTest":{"comparator":"=","value":"0xA7EC01b4AAB4Cc8c1c101a87C275C08e7C4F2675"}}],"solRpcConditions":[]}"
+
+    // const arrJson = new Uint8Array(JSON.stringify(payload));
+    const blobJson = new Blob([JSON.stringify(payload)], {
+      type: "application/json",
+    });
+    // const files = [new File([blob], `${uid}${Date.now()}.pdf`)];
+    console.log({ blobJson });
+    const files = [
+      new File([JSON.stringify(payload)], `contract_name.json`, {
+        type: "application/json",
+      }),
+    ];
+
+    console.log({ files });
 
     const cid = await storeFiles(files);
 
@@ -296,7 +410,7 @@ const PrepareDocument = () => {
           content: {
             name: `Name contract ${Date.now()}`,
             contractHash: cid,
-            xfdf: xfdfString,
+            encypted: Number(contractEncryption),
             signers,
           },
         },
@@ -367,7 +481,7 @@ const PrepareDocument = () => {
           </Box>
           <Box padding={3}>
             <Row gap={1}>
-              <Stack>
+              <Stack direction="column">
                 <Box padding={2}>
                   <Text>{"Step 1"}</Text>
                 </Box>
@@ -386,7 +500,7 @@ const PrepareDocument = () => {
               </Stack>
             </Row>
             <Row>
-              <Stack>
+              <Stack direction="column">
                 <Box padding={2}>
                   <Text>{"Step 2"}</Text>
                 </Box>
@@ -446,7 +560,7 @@ const PrepareDocument = () => {
               </Stack>
             </Row>
             <Row gap={1}>
-              <Stack>
+              <Stack direction="column">
                 <Box padding={2}>
                   <Text>{"Step 3"}</Text>
                 </Box>

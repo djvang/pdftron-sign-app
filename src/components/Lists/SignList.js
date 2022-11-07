@@ -1,5 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Button, Table, Text, Spinner } from "gestalt";
+import {
+  Box,
+  Button,
+  Table,
+  Text,
+  Spinner,
+  Modal,
+  Flex,
+  Heading,
+  IconButton,
+  TextField,
+} from "gestalt";
 import "gestalt/dist/gestalt.css";
 import { useDispatch, useSelector } from "react-redux";
 import { searchForDocumentToSign } from "../../firebase/firebase";
@@ -9,6 +20,11 @@ import { setDocToView } from "../ViewDocument/ViewDocumentSlice";
 import { navigate } from "@reach/router";
 import { useQuery } from "@apollo/client";
 import { QUERY_CONTRACTS } from "../../composedb/composedb";
+import { selectKey, setKey } from "../Assign/AssignSlice";
+import { useConnectWallet } from "@web3-onboard/react";
+import { ethers } from "ethers";
+import { useLit } from "../../lit/context";
+import { logout } from "../../lit/lit";
 
 const truncateAddress = (address, length = 6) => {
   if (!address) return "No Account";
@@ -20,13 +36,72 @@ const truncateAddress = (address, length = 6) => {
   return `${match[1]}…${match[2]}`;
 };
 
+function PasswordModal({ onClose, onSend }) {
+  const key = useSelector(selectKey);
+  const dispatch = useDispatch();
+
+  const handleKey = (event) => {
+    dispatch(setKey({ value: event.value }));
+  };
+
+  console.log({ key });
+
+  return (
+    <Modal
+      closeOnOutsideClick={onClose}
+      accessibilityModalLabel="Choose how to claim site"
+      align="start"
+      heading={
+        <Box padding={6}>
+          <Flex justifyContent="between">
+            <Heading size="500" accessibilityLevel={1}>
+              Decrypt Contract
+            </Heading>
+            <IconButton
+              accessibilityLabel="Dismiss modal"
+              bgColor="white"
+              icon="cancel"
+              iconColor="darkGray"
+              onClick={onClose}
+              size="sm"
+            />
+          </Flex>
+        </Box>
+      }
+      size="sm"
+      footer={
+        <Flex justifyContent="end" gap={2}>
+          <Button onClick={onClose} color="gray" text="Cancel" />
+          <Button onClick={onSend} color="red" text="Send" />
+        </Flex>
+      }
+    >
+      <Box padding={6}>
+        <Box marginBottom={4}>Input password to decrypt the contract.</Box>
+        <TextField
+          id="password"
+          onChange={handleKey}
+          placeholder="Enter password"
+          value={key}
+          type="password"
+        />
+      </Box>
+    </Modal>
+  );
+}
+
 const SignList = () => {
+  const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
+  const [litAuth, setLitAuth] = useState(false);
+  const key = useSelector(selectKey);
+
+  const [status, setStatus] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const user = useSelector(selectUser);
   const { email } = user;
 
   const [docs, setDocs] = useState([]);
   const [show, setShow] = useState(true);
-  const [isView, setIsView] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -35,6 +110,16 @@ const SignList = () => {
   });
 
   console.log("QUERY_CONTRACTS: ", { loading, error, data });
+
+  let ethersProvider;
+  if (wallet) {
+    ethersProvider = new ethers.providers.Web3Provider(wallet.provider, "any");
+  }
+  const { getAuthSig, generateLitSignature } = useLit();
+
+  useEffect(() => {
+    setLitAuth(getAuthSig());
+  }, []);
 
   useEffect(() => {
     async function getDocs() {
@@ -115,7 +200,7 @@ const SignList = () => {
       setShow(false);
     }
 
-    if (user && !loading && data?.contractIndex?.edges?.length > 0) {
+    if (user && !loading && !error) {
       getDocs();
     }
   }, [user, loading, data]);
@@ -124,12 +209,31 @@ const SignList = () => {
 
   const filteredUnsignedDocs = docs?.filter((doc) => !doc.node.__signed);
 
+  // navigate(`/viewDocument`);
+  // navigate(`/signDocument`);
+
   return (
     <div>
       {show ? (
         <Spinner show={show} accessibilityLabel="spinner" />
       ) : (
         <div>
+          {showModal && (
+            <PasswordModal
+              key="modal-password"
+              onClose={() => setShowModal(false)}
+              onSend={() => {
+                setShowModal(false);
+                if (status === "sign") {
+                  navigate(`/signDocument`);
+                }
+
+                if (status === "view") {
+                  navigate(`/viewDocument`);
+                }
+              }}
+            />
+          )}
           {filteredUnsignedDocs.length > 0 ? (
             <Table>
               <Table.Header>
@@ -163,7 +267,17 @@ const SignList = () => {
                   return (
                     <Table.Row key={doc.node.id}>
                       <Table.Cell>
-                        <Text>{truncateAddress(doc?.node?.initiator?.id)}</Text>
+                        <Text>
+                          {truncateAddress(doc?.node?.initiator?.id)} (
+                          {doc?.node?.encypted === 0
+                            ? "not encrypted"
+                            : doc?.node?.encypted === 1
+                            ? "password"
+                            : doc?.node?.encypted === 2
+                            ? "lit protocol"
+                            : ""}
+                          )
+                        </Text>
                       </Table.Cell>
                       <Table.Cell>
                         <Text>
@@ -183,10 +297,37 @@ const SignList = () => {
                       <Table.Cell>
                         {isView ? (
                           <Button
-                            onClick={(event) => {
+                            onClick={async (event) => {
+                              dispatch(setKey({ value: "" }));
                               const { id } = doc?.node;
-                              dispatch(setDocToView({ id }));
-                              navigate(`/viewDocument`);
+
+                              if (doc.node.encypted === 1) {
+                                setShowModal(true);
+                                dispatch(setDocToView({ id }));
+                                setStatus("view");
+                              } else if (doc.node.encypted === 2) {
+                                // logout();
+                                // setLitAuth(false);
+                                if (wallet && ethersProvider) {
+                                  /** Generate the signature for Lit */
+                                  let resLitSig = await generateLitSignature(
+                                    wallet.provider,
+                                    wallet?.accounts?.[0]?.address
+                                  );
+                                  console.log({ resLitSig });
+
+                                  if (resLitSig.status === 200) {
+                                    setLitAuth(true);
+                                    dispatch(setDocToView({ id }));
+                                    setStatus("view");
+                                    navigate(`/viewDocument`);
+                                  }
+                                }
+                              } else {
+                                dispatch(setDocToView({ id }));
+                                setStatus("view");
+                                navigate(`/viewDocument`);
+                              }
                             }}
                             text="View"
                             color="gray"
@@ -194,10 +335,35 @@ const SignList = () => {
                           />
                         ) : (
                           <Button
-                            onClick={(event) => {
+                            onClick={async (event) => {
+                              dispatch(setKey({ value: "" }));
                               const { id } = doc?.node;
-                              dispatch(setDocToSign({ id }));
-                              navigate(`/signDocument`);
+
+                              if (doc.node.encypted === 1) {
+                                setShowModal(true);
+                                dispatch(setDocToSign({ id }));
+                                setStatus("sign");
+                              } else if (doc.node.encypted === 2 && !litAuth) {
+                                if (wallet && ethersProvider) {
+                                  /** Generate the signature for Lit */
+                                  let resLitSig = await generateLitSignature(
+                                    wallet.provider,
+                                    wallet?.accounts?.[0]?.address
+                                  );
+                                  console.log({ resLitSig });
+
+                                  if (resLitSig.status === 200) {
+                                    setLitAuth(true);
+                                    dispatch(setDocToSign({ id }));
+                                    setStatus("sign");
+                                    navigate(`/signDocument`);
+                                  }
+                                }
+                              } else {
+                                dispatch(setDocToSign({ id }));
+                                setStatus("sign");
+                                navigate(`/viewDocument`);
+                              }
                             }}
                             text="Sign"
                             color="blue"

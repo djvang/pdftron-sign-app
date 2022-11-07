@@ -153,7 +153,7 @@ export const QUERY_CONTRACTS_VIEWER = gql`
             __typename
             id
             name
-            xfdf
+            # xfdf
             contractHash
             initiator {
               id
@@ -165,6 +165,7 @@ export const QUERY_CONTRACTS_VIEWER = gql`
               edges {
                 node {
                   contractHash
+                  # xfdf
                   signer {
                     id
                   }
@@ -190,7 +191,8 @@ export const QUERY_CONTRACTS = gql`
           __typename
           id
           name
-          xfdf
+          encypted
+          # xfdf
           contractHash
           initiator {
             id
@@ -202,7 +204,7 @@ export const QUERY_CONTRACTS = gql`
             edges {
               node {
                 contractHash
-                xfdf
+                # xfdf
                 signer {
                   id
                 }
@@ -226,7 +228,8 @@ export const CREATE_CONTRACT = gql`
         __typename
         id
         name
-        xfdf
+        encypted
+        # xfdf
         contractHash
         initiator {
           id
@@ -246,7 +249,8 @@ export const QUERY_CONTRACT = gql`
         __typename
         id
         name
-        xfdf
+        encypted
+        # xfdf
         contractHash
         initiator {
           id
@@ -258,7 +262,7 @@ export const QUERY_CONTRACT = gql`
           edges {
             node {
               contractHash
-              xfdf
+              # xfdf
               signer {
                 id
               }
@@ -277,7 +281,8 @@ export const UPDATE_CONTRACT = gql`
         __typename
         id
         name
-        xfdf
+        encypted
+        # xfdf
         contractHash
         initiator {
           id
@@ -296,8 +301,8 @@ export const CREATE_CONTRACT_STEP = gql`
       document {
         __typename
         id
-        xfdf
         contractHash
+        # xfdf
         signer {
           id
         }

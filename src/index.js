@@ -8,6 +8,7 @@ import { OnboardProvider } from "./onboard/context";
 import { CeramicProvider } from "./ceramic/context";
 // import { GlazedProvider } from "./glazed/context";
 import { ComposeProvider } from "./composedb/composedb";
+import { LitProvider } from "./lit/context";
 
 ReactDOM.render(
   <React.StrictMode>
@@ -15,7 +16,9 @@ ReactDOM.render(
       <OnboardProvider>
         <CeramicProvider>
           <ComposeProvider>
-            <App />
+            <LitProvider>
+              <App />
+            </LitProvider>
           </ComposeProvider>
         </CeramicProvider>
       </OnboardProvider>

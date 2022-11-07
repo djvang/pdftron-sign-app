@@ -1,7 +1,14 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { navigate } from "@reach/router";
-import { Box, Column, Heading, Row, Stack, Button } from "gestalt";
+import {
+  Box,
+  Column,
+  Heading,
+  Flex as Row,
+  Flex as Stack,
+  Button,
+} from "gestalt";
 import { selectDocToSign } from "./SignDocumentSlice";
 import { storage, updateDocumentToSign } from "../../firebase/firebase";
 import { selectUser } from "../../firebase/firebaseSlice";
@@ -18,14 +25,25 @@ import {
   retrieveFiles,
   storeFiles,
 } from "../../web3.storage/put-files";
+import { selectContractEncryption, selectKey } from "../Assign/AssignSlice";
+import cryptoJs from "crypto-js";
+import {
+  decryptDataArrayFromStringAES,
+  getEncryptedStringFromFile,
+} from "../../crypto/cryptoJS";
+import { decryptFile, decryptString, getAuthSig } from "../../lit/lit";
+import { base64StringToBlob } from "lit-js-sdk";
 
 const SignDocument = () => {
+  const key = useSelector(selectKey);
+  const contractEncryption = useSelector(selectContractEncryption);
   const [annotationManager, setAnnotationManager] = useState(null);
   const [annotPosition, setAnnotPosition] = useState(0);
   const [instance, setInstance] = useState(null);
   const doc = useSelector(selectDocToSign);
   const user = useSelector(selectUser);
   const [annotationsToDelete, setAnnotationsToDelete] = useState([]);
+  console.log({ id: doc.id });
   const contractQuery = useQuery(QUERY_CONTRACT, {
     skip: !doc.id,
     variables: { id: doc.id },
@@ -39,7 +57,7 @@ const SignDocument = () => {
     refetchQueries: ["Contracts"],
   });
 
-  console.log({ doc });
+  console.log({ doc, contractQuery });
 
   useEffect(() => {
     if (contractQuery.data) {
@@ -78,11 +96,65 @@ const SignDocument = () => {
           contractQuery.data?.contract?.contractHash
         );
 
-        console.log({ files: files[0] });
+        console.log({ files });
 
-        const URL = `https://${files[0].cid}.ipfs.w3s.link/`;
+        // const URL = `https://${files[0].cid}.ipfs.w3s.link/`;
+        // documentViewer.loadDocument(URL);
 
-        documentViewer.loadDocument(URL);
+        const URL = `https://ipfs.io/ipfs/${files[0].cid}`;
+
+        const response = await fetch(URL).then((r) => r.json());
+
+        let fileContract = null;
+        let xfdfContract = null;
+
+        if (contractQuery.data?.contract?.encypted === 2) {
+          const encryptedFileBlob = await base64StringToBlob(
+            response.fileStr.encryptedFile
+          );
+
+          console.log({
+            encryptedFileBlob,
+            encryptedFile: response.fileStr.encryptedFile,
+          });
+
+          const decryptedFile = await decryptFile(
+            encryptedFileBlob,
+            response.fileStr.encryptedSymmetricKey,
+            response.fileStr.accessControlConditions
+          );
+          const decryptedSignature = await decryptString(response.xfdfStr);
+
+          console.log({ decryptedFile, decryptedSignature });
+
+          fileContract = decryptedFile.result;
+          xfdfContract = decryptedSignature.result;
+        }
+
+        if (
+          contractQuery.data?.contract?.encypted === 0 ||
+          contractQuery.data?.contract?.encypted === 1
+        ) {
+          const encryptionKey = key;
+
+          const fileBlob = decryptDataArrayFromStringAES(
+            response.fileStr,
+            encryptionKey
+          );
+
+          fileContract = new File([fileBlob], "contract.pdf");
+
+          const bytes = cryptoJs.AES.decrypt(response.xfdfStr, encryptionKey);
+          xfdfContract = bytes.toString(cryptoJs.enc.Utf8);
+        }
+
+        documentViewer.loadDocument(fileContract, {
+          filename: "contract.pdf",
+        });
+
+        console.log({ fileContract, xfdfContract });
+
+        // decrypt signature data with encryptionKey (decryptedMessage)
 
         // xfdfData.forEach((xfdf) => {
         //   annotationManager.importAnnotations(xfdf);
@@ -114,47 +186,51 @@ const SignDocument = () => {
           }
         };
 
-        const steps = contractQuery?.data?.contract?.steps.edges;
-        const xfdfData = contractQuery?.data?.contract.signers.reduce(
-          (xfdfData, signer) => {
-            const signerOfContract = signer?.address?.toLowerCase();
+        const xfdfOfSteps = await Promise.all(
+          contractQuery?.data?.contract?.steps.edges.map(async (step) => {
+            const files = await retrieveFiles(step.node?.contractHash);
 
-            console.log({ steps });
+            console.log({ stepFiles: files });
 
-            steps.forEach((step) => {
-              const signerOfStep = step?.node?.signer?.id?.toLowerCase();
+            const URL = `https://ipfs.io/ipfs/${files[0].cid}`;
 
-              console.log({
-                signerOfContract,
-                signerOfStep,
-              });
-              if (signerOfStep?.includes(signerOfContract)) {
-                xfdfData.push(step.node.xfdf);
-              }
-            });
+            const response = await fetch(URL).then((r) => r.json());
 
-            return xfdfData;
-          },
-          []
+            const encryptionKey = key;
+
+            console.log({ encryptionKey, response });
+
+            const bytes = cryptoJs.AES.decrypt(response.xfdfStr, encryptionKey);
+            const xfdfString = bytes.toString(cryptoJs.enc.Utf8);
+
+            return xfdfString;
+          })
         );
 
-        setAnnotationsToDelete(xfdfData);
+        console.log({ xfdfOfSteps });
+
+        // setAnnotationsToDelete([xfdfContract, ...xfdfOfSteps]);
 
         annotationManager.on(
           "annotationChanged",
           (annotations, action, { imported }) => {
             if (imported && action === "add") {
               annotations.forEach(function (annot) {
+                const field = annot.fieldName.toLowerCase().split("_")[0];
+                const isSigner = field === email.toLowerCase();
+                console.log({
+                  annot,
+                  field,
+                  signer: email.toLowerCase(),
+                  isSigner: field === email.toLowerCase(),
+                });
                 if (annot instanceof Annotations.WidgetAnnotation) {
                   Annotations.WidgetAnnotation.getCustomStyles = normalStyles;
 
-                  if (
-                    !annot.fieldName
-                      .toLowerCase()
-                      .startsWith(email.toLowerCase())
-                  ) {
+                  if (!isSigner) {
                     annot.Hidden = true;
                     annot.Listable = false;
+                  } else {
                   }
                 }
               });
@@ -163,13 +239,21 @@ const SignDocument = () => {
         );
 
         documentViewer.addEventListener("annotationsLoaded", () => {
-          xfdfData.forEach((xfdf) => {
+          [xfdfContract, ...xfdfOfSteps].forEach((xfdf) => {
             instance?.Core.annotationManager
               .importAnnotations(xfdf)
               .then((annotations) => {
                 const mapppedAnnotations = annotations.map((a) => {
                   a.ReadOnly = true;
                   a.Hidden = false;
+                  const field = a.fieldName.toLowerCase().split("_")[0];
+                  const isSigner = field === email.toLowerCase();
+
+                  if (!isSigner) {
+                    a.Hidden = true;
+                    a.Listable = false;
+                  }
+
                   return a;
                 });
                 annotationManager.drawAnnotationsFromList(mapppedAnnotations);
@@ -180,7 +264,7 @@ const SignDocument = () => {
       });
     }
     // return () => {
-    //   instance.Core.documentViewer.removeEventListener('annotationsLoaded');
+    //   instance.Core.documentViewer.removeEventListener("annotationsLoaded");
     //   instance.UI.closeDocument();
     // };
   }, [contractQuery.data, email]);
@@ -209,28 +293,67 @@ const SignDocument = () => {
     const { docViewer } = instance;
     const docV = docViewer.getDocument();
 
+    let encryptionKey = ""; // AES encryption key
+    const passwordEncryption = contractEncryption === 1;
+
+    if (passwordEncryption) {
+      encryptionKey = key;
+    }
+
     // delete old annotations
     // annotationManager.deleteAnnotations(annotationsToDelete, {
     //   force: true,
     // });
 
-    const xfdf = await annotationManager.exportAnnotations({
+    const xfdfString = await annotationManager.exportAnnotations({
       widgets: false,
       links: false,
     });
 
-    console.log({ xfdfNew: xfdf, annotationsToDelete });
+    console.log({ xfdfNew: xfdfString, annotationsToDelete });
 
     // await updateDocumentToSign(docId, email, xfdf);
     // navigate("/");
 
-    const data = await docV.getFileData({ xfdfString: xfdf });
+    const data = await docV.getFileData({ xfdfString });
 
     const arr = new Uint8Array(data);
 
     const blob = new Blob([arr], { type: "application/pdf" });
 
-    const files = [new File([blob], `${uid}${Date.now()}.pdf`)];
+    // const files = [new File([blob], `${uid}${Date.now()}.pdf`)];
+
+    // encrypted file string
+    const encryptedFile = await getEncryptedStringFromFile(blob, encryptionKey);
+    // encrypted signature string
+    const encryptedSignature = cryptoJs.AES.encrypt(
+      xfdfString,
+      encryptionKey
+    ).toString();
+
+    // payload to be uploaded on arweave via new storage service
+    // breaking changes introduced for one-tap encryption
+    // ver 4.1 indicates one-tap encryption breaking on payload
+    const payload = {
+      // recipientKeys: recipientKeys,
+      fileStr: encryptedFile,
+      xfdfStr: encryptedSignature,
+      meta: {
+        version: "1.0", // increase the version when breaking changes introduced
+      },
+    };
+
+    console.log({ payload });
+
+    // const arrJson = new Uint8Array(JSON.stringify(payload));
+    const blobJson = new Blob([JSON.stringify(payload)], {
+      type: "application/json",
+    });
+    // const files = [new File([blob], `${uid}${Date.now()}.pdf`)];
+    console.log({ blobJson });
+    const files = [new File([blobJson], `contract_name.json`)];
+
+    console.log({ files });
 
     const cid = await storeFiles(files);
     const contractID = doc?.id;
@@ -243,7 +366,6 @@ const SignDocument = () => {
           content: {
             contractID,
             contractHash: cid,
-            xfdf,
           },
         },
       },
@@ -270,7 +392,7 @@ const SignDocument = () => {
           </Box>
           <Box padding={3}>
             <Row gap={1}>
-              <Stack>
+              <Stack direction="column">
                 <Box padding={2}>
                   <Button
                     onClick={nextField}

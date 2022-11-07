@@ -1,27 +1,22 @@
 {
   "models": {
-    "Profile": {
-      "id": "kjzl6hvfrbw6c5gohiw93e3o8kb6v4uwb4pbonsawlf8qz0spp7gnhn26pj6uwm",
-      "accountRelation": { "type": "single" }
-    },
     "Contract": {
-      "id": "kjzl6hvfrbw6cazwhi6yr04huygxp7szvzvxduxe93wyo8rlz62a6lwvj1ee4xu",
+      "id": "kjzl6hvfrbw6c7kq50t8zb89fgthcb0qvfobtj5kp5t7z7rdi4rwi5sxv9j0jbm",
       "accountRelation": { "type": "list" }
     },
     "ContractStep": {
-      "id": "kjzl6hvfrbw6c61luu0zt4aflw87e1dg0fyold01fr14i9co692gidselulasu3",
+      "id": "kjzl6hvfrbw6c8fdjvq6y0ydkxz81e7kut5arecx7mjw17139b1qusm99onbdfp",
       "accountRelation": { "type": "list" }
+    },
+    "Profile": {
+      "id": "kjzl6hvfrbw6ca58qma9xwatm5sz0vw36ygh7n94112lmv4tvjbqogc84cgumu5",
+      "accountRelation": { "type": "single" }
     }
   },
   "objects": {
-    "Profile": {
-      "name": { "type": "string", "required": true },
-      "email": { "type": "string", "required": true }
-    },
     "ContractSigners": { "address": { "type": "string", "required": true } },
     "Contract": {
       "name": { "type": "string", "required": true },
-      "xfdf": { "type": "string", "required": true },
       "expiry": { "type": "datetime", "required": false },
       "signers": {
         "type": "list",
@@ -33,6 +28,7 @@
           "required": true
         }
       },
+      "encypted": { "type": "integer", "required": true },
       "contractHash": { "type": "string", "required": true },
       "version": { "type": "view", "viewType": "documentVersion" },
       "initiator": { "type": "view", "viewType": "documentAccount" },
@@ -41,13 +37,12 @@
         "viewType": "relation",
         "relation": {
           "source": "queryConnection",
-          "model": "kjzl6hvfrbw6c61luu0zt4aflw87e1dg0fyold01fr14i9co692gidselulasu3",
+          "model": "kjzl6hvfrbw6c8fdjvq6y0ydkxz81e7kut5arecx7mjw17139b1qusm99onbdfp",
           "property": "contractID"
         }
       }
     },
     "ContractStep": {
-      "xfdf": { "type": "string", "required": true },
       "contractID": { "type": "streamid", "required": true },
       "contractHash": { "type": "string", "required": true },
       "signer": { "type": "view", "viewType": "documentAccount" },
@@ -57,16 +52,20 @@
         "viewType": "relation",
         "relation": {
           "source": "document",
-          "model": "kjzl6hvfrbw6cazwhi6yr04huygxp7szvzvxduxe93wyo8rlz62a6lwvj1ee4xu",
+          "model": "kjzl6hvfrbw6c7kq50t8zb89fgthcb0qvfobtj5kp5t7z7rdi4rwi5sxv9j0jbm",
           "property": "contractID"
         }
       }
+    },
+    "Profile": {
+      "name": { "type": "string", "required": true },
+      "email": { "type": "string", "required": true }
     }
   },
   "enums": {},
   "accountData": {
-    "profile": { "type": "node", "name": "Profile" },
     "contractList": { "type": "connection", "name": "Contract" },
-    "contractStepList": { "type": "connection", "name": "ContractStep" }
+    "contractStepList": { "type": "connection", "name": "ContractStep" },
+    "profile": { "type": "node", "name": "Profile" }
   }
 }

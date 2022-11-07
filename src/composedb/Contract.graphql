@@ -8,6 +8,6 @@ type Contract @createModel(accountRelation: LIST, description: "Contract") {
   contractHash: String! @string(minLength: 4, maxLength: 150)
   name: String! @string(minLength: 4, maxLength: 100)
   expiry: DateTime
+  encypted: Int! @int(min: 0, max: 10)
   signers: [Signers!]! @list(minLength: 2, maxLength: 100)
-  xfdf: String! @string(minLength: 1, maxLength: 10000)
 }

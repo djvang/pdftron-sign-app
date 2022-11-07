@@ -10,14 +10,14 @@ export function getAccessToken() {
   // your code base. For this to work, you need to set the
   // WEB3STORAGE_TOKEN environment variable before you run your code.
   //process.env.WEB3STORAGE_TOKEN
-  return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweDgyNTJjNTVhRDE0MDM2RkU3NDI2NDg4MDBlM2M5N2EzNTdCRDk3Q2IiLCJpc3MiOiJ3ZWIzLXN0b3JhZ2UiLCJpYXQiOjE2NjUxNDk1OTIyNDUsIm5hbWUiOiJzaWduLWFwcCJ9.JTM4EKiN2aTenqMjSRGajEgn2cSJHhUXeIbYZOErTCM";
+  return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweDgyNTJjNTVhRDE0MDM2RkU3NDI2NDg4MDBlM2M5N2EzNTdCRDk3Q2IiLCJpc3MiOiJ3ZWIzLXN0b3JhZ2UiLCJpYXQiOjE2NjczMTA3MjQzODUsIm5hbWUiOiJzaWduIn0.ys2u3YQFej332z4WvqWkKr_lq8jv2xrpkoiMHse9YgI";
 }
 
 export function makeStorageClient() {
   return new Web3Storage({ token: getAccessToken() });
 }
 
-const client = makeStorageClient();
+// const client = makeStorageClient();
 
 export function makeFileObjects() {
   // You can create File objects from a Blob of binary data
@@ -35,7 +35,7 @@ export function makeFileObjects() {
 }
 
 export async function storeFiles(files) {
-  // const client = makeStorageClient();
+  const client = makeStorageClient();
   const cid = await client.put(files);
   console.log("stored files with cid:", cid);
   return cid;
@@ -66,7 +66,7 @@ export async function storeWithProgress(files) {
 }
 
 export async function retrieve(cid) {
-  // const client = makeStorageClient();
+  const client = makeStorageClient();
   const res = await client.get(cid);
   console.log(`Got a response! [${res.status}] ${res.statusText}`);
   if (!res.ok) {
@@ -78,9 +78,14 @@ export async function retrieve(cid) {
 }
 
 export async function retrieveFiles(cid) {
-  // const client = makeStorageClient();
+  const client = makeStorageClient();
+  console.log({ cid, client });
+
   const res = await client.get(cid);
   console.log(`Got a response! [${res.status}] ${res.statusText}`);
+
+  console.log({ res });
+
   if (!res.ok) {
     throw new Error(`failed to get ${cid} - [${res.status}] ${res.statusText}`);
   }

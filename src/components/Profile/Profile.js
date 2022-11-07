@@ -4,8 +4,8 @@ import {
   Button,
   Text,
   Avatar,
-  Row,
-  Stack,
+  Flex as Row,
+  Flex as Stack,
   Column,
   Heading,
 } from "gestalt";
@@ -40,7 +40,7 @@ const ProfilePage = () => {
             <Box padding={1}>
               <Avatar name={displayName} size="md" src={photoURL} />
             </Box>
-            <Stack>
+            <Stack direction="column">
               <Text weight="bold">{displayName}</Text>
               <Text>{email}</Text>
             </Stack>
