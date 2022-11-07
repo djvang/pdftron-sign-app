@@ -119,7 +119,9 @@ const SignList = () => {
 
   useEffect(() => {
     setLitAuth(getAuthSig());
-  }, []);
+  }, [getAuthSig]);
+
+  console.log({ wallet, user, litAuth });
 
   useEffect(() => {
     async function getDocs() {
@@ -264,6 +266,13 @@ const SignList = () => {
                     (initiator === true && !!signed === false) ||
                     signed?.__signed;
 
+                  console.log({
+                    initiator,
+                    signer: signed,
+                    signed: signed?.__signed,
+                    isView,
+                  });
+
                   return (
                     <Table.Row key={doc.node.id}>
                       <Table.Cell>
@@ -362,7 +371,7 @@ const SignList = () => {
                               } else {
                                 dispatch(setDocToSign({ id }));
                                 setStatus("sign");
-                                navigate(`/viewDocument`);
+                                navigate(`/signDocument`);
                               }
                             }}
                             text="Sign"
