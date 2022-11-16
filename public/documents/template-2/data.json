@@ -1,0 +1,5 @@
+{
+  "initiator": { "field1": "value1", "field2": "value2", "cond_field1": true },
+  "signer1": { "field1": "signer value1" },
+  "signer2": { "field1": "signer value1" }
+}

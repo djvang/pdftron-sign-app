@@ -16,6 +16,8 @@ import {
   resetSignee,
   selectContractEncryption,
   selectKey,
+  selectInitiatorForm,
+  selectTemplate,
 } from "../Assign/AssignSlice";
 import { storage, addDocumentToSign } from "../../firebase/firebase";
 import { selectUser } from "../../firebase/firebaseSlice";
@@ -36,9 +38,13 @@ import {
 
 import LitJsSdk from "lit-js-sdk";
 
+import { initializeHTMLViewer } from "@pdftron/webviewer-html";
+
 const { blobToBase64String } = LitJsSdk;
 
 const PrepareDocument = () => {
+  const template = useSelector(selectTemplate);
+  const initiatorForm = useSelector(selectInitiatorForm);
   const [instance, setInstance] = useState(null);
   const [dropPoint, setDropPoint] = useState(null);
 
@@ -65,7 +71,7 @@ const PrepareDocument = () => {
   const viewer = useRef(null);
   const filePicker = useRef(null);
 
-  console.log({ contractEncryption, key, assignees });
+  console.log({ contractEncryption, key, assignees, initiatorForm });
   // 0x5A633e60af7B6b1bB3D59f6b3a94adAae93551d7 metamsk
   // 0xD22bF0d04B72Ee47FeC2a3CADF4dA483F04fCb95 metamsk
   // 0xA7EC01b4AAB4Cc8c1c101a87C275C08e7C4F2675 BN
@@ -75,16 +81,40 @@ const PrepareDocument = () => {
     WebViewer(
       {
         path: "webviewer",
-        disabledElements: [
-          "ribbons",
-          "toggleNotesButton",
-          "searchButton",
-          "menuButton",
-        ],
+        preloadWorker: "office",
+        // disabledElements: [
+        //   "ribbons",
+        //   "toggleNotesButton",
+        //   "searchButton",
+        //   "menuButton",
+        // ],
+        // initialDoc: "../../documents/template1/template.docx",
+        fullAPI: false,
       },
       viewer.current
-    ).then((instance) => {
+    ).then(async (instance) => {
       const { iframeWindow } = instance;
+      const { documentViewer } = instance.Core;
+
+      instance.UI.loadDocument(
+        `${window.location.origin}/documents/template-${template}/template.docx`,
+        {
+          officeOptions: {
+            doTemplatePrep: true,
+          },
+        }
+      );
+
+      // Extends WebViewer to allow loading HTML5 files from URL or static folder.
+      // const { loadHTMLPage } = await initializeHTMLViewer(instance);
+
+      // loadHTMLPage({
+      //   iframeUrl: `${window.location.origin}/documents/template-${template}/template.html`,
+      //   // URL that is being proxied
+      //   urlToProxy: `${window.location.origin}/documents/template-${template}/template.html`,
+      //   width: 1440,
+      //   height: 770,
+      // });
 
       // select only the view group
       instance.UI.setToolbarGroup("toolbarGroup-View");
@@ -103,6 +133,30 @@ const PrepareDocument = () => {
           instance.UI.loadDocument(file);
         }
       };
+
+      documentViewer.addEventListener("documentLoaded", async () => {
+        const doc = documentViewer.getDocument();
+        await doc.documentCompletePromise();
+        documentViewer.updateView();
+
+        const keys = await doc.getTemplateKeys("schema");
+        const values = {
+          initiator: {
+            field1: "value1",
+            field2: "value2",
+            cond_field1: true,
+          },
+          signer1: {
+            field1: "signer value1",
+          },
+          signer2: {
+            field1: "signer value1",
+          },
+        };
+        await doc.applyTemplateValues({ initiator: initiatorForm });
+
+        console.log({ doc, keys });
+      });
     });
   }, []);
 

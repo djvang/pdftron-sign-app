@@ -16,7 +16,9 @@ export const AssignSlice = createSlice({
       },
     ],
     contractEncryption: 1,
+    template: 0,
     key: "123456",
+    initiatorForm: null,
   },
   reducers: {
     addSignee: (state, action) => {
@@ -39,15 +41,29 @@ export const AssignSlice = createSlice({
     setKey: (state, action) => {
       state.key = action.payload.value;
     },
+    setTemplate: (state, action) => {
+      state.template = action.payload.value;
+    },
+    setInitiatorForm: (state, action) => {
+      state.initiatorForm = action.payload.value;
+    },
   },
 });
 
-export const { addSignee, resetSignee, setContractEncryption, setKey } =
-  AssignSlice.actions;
+export const {
+  addSignee,
+  resetSignee,
+  setContractEncryption,
+  setKey,
+  setTemplate,
+  setInitiatorForm,
+} = AssignSlice.actions;
 
 export const selectAssignees = (state) => state.assign.signees;
 export const selectContractEncryption = (state) =>
   state.assign.contractEncryption;
 export const selectKey = (state) => state.assign.key;
+export const selectTemplate = (state) => state.assign.template;
+export const selectInitiatorForm = (state) => state.assign.initiatorForm;
 
 export default AssignSlice.reducer;

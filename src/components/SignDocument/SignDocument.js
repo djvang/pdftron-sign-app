@@ -261,6 +261,30 @@ const SignDocument = () => {
               });
           });
         });
+
+        documentViewer.addEventListener("documentLoaded", async () => {
+          const doc = documentViewer.getDocument();
+          await doc.documentCompletePromise();
+          documentViewer.updateView();
+
+          const keys = await doc.getTemplateKeys("schema");
+          const values = {
+            initiator: {
+              field1: "value1",
+              field2: "value2",
+              cond_field1: true,
+            },
+            signer1: {
+              field1: "signer value1",
+            },
+            signer2: {
+              field1: "signer value1",
+            },
+          };
+          await doc.applyTemplateValues(values);
+
+          console.log({ doc, keys });
+        });
       });
     }
     // return () => {

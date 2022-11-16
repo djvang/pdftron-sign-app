@@ -1,31 +1,87 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { navigate } from "@reach/router";
 import {
   Box,
   Button,
+  Checkbox,
   Container,
   Heading,
   TextField,
   Table,
   Text,
   Toast,
+  Flex,
+  Spinner,
+  SelectList,
 } from "gestalt";
 import "gestalt/dist/gestalt.css";
 import {
   addSignee,
   selectAssignees,
+  selectTemplate,
+  setTemplate,
   selectContractEncryption,
   selectKey,
   setContractEncryption,
   setKey,
+  selectInitiatorForm,
+  setInitiatorForm,
 } from "./AssignSlice";
 import { useEffect } from "react";
 import { useLit } from "../../lit/context";
 import { useConnectWallet } from "@web3-onboard/react";
 import { ethers } from "ethers";
 
+import WebViewer from "@pdftron/webviewer";
+
+function SelectTemplate() {
+  const dispatch = useDispatch();
+  const template = useSelector(selectTemplate);
+  const TEMPLATES = ["without template", "template 1", "template 2"];
+
+  const options = TEMPLATES.map((template, index) => ({
+    label: template,
+    value: index,
+  }));
+
+  const [errorMessage, setErrorMessage] = useState();
+
+  const handleOnBlur = ({ value }) => {
+    if (value !== "" && !TEMPLATES.includes(value))
+      setErrorMessage("Please, select a valid option");
+  };
+
+  const resetInitiatorForm = () => dispatch(setInitiatorForm({}));
+
+  const resetErrorMessage = errorMessage ? () => setErrorMessage() : () => {};
+
+  return (
+    <SelectList
+      accessibilityClearButtonLabel="Clear the current value"
+      errorMessage={errorMessage}
+      id="header"
+      label="Select template"
+      noResultText="No results for your selection"
+      onBlur={handleOnBlur}
+      onChange={(e) => {
+        resetErrorMessage();
+        resetInitiatorForm();
+        dispatch(setTemplate({ value: Number(e.value) }));
+      }}
+      onClear={resetErrorMessage}
+      options={options}
+      value={template}
+      placeholder="Select template"
+    />
+  );
+}
+
 const Assign = () => {
+  const [keys, setKeys] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [instance, setInstance] = useState(null);
+  const viewer = useRef(null);
   const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
   const [litAuth, setLitAuth] = useState(false);
   const [email, setEmail] = useState("");
@@ -35,9 +91,13 @@ const Assign = () => {
   const [displayName, setDisplayName] = useState("");
   const [showToast, setShowToast] = useState(false);
   const assignees = useSelector(selectAssignees);
+
   const contractEncryption = useSelector(selectContractEncryption);
   const key = useSelector(selectKey);
   const dispatch = useDispatch();
+
+  const template = useSelector(selectTemplate);
+  const initiatorForm = useSelector(selectInitiatorForm);
 
   let ethersProvider;
   if (wallet) {
@@ -46,6 +106,61 @@ const Assign = () => {
 
   const { getLit, getAuthSig, generateLitSignature, generateLitSignatureV2 } =
     useLit();
+
+  useEffect(() => {
+    console.log({ template });
+
+    WebViewer(
+      {
+        path: "webviewer",
+        preloadWorker: "office",
+        fullAPI: false,
+      },
+      viewer.current
+    ).then((instance) => {
+      const { UI, Core } = instance;
+      const { documentViewer } = instance.Core;
+
+      UI.disableFeatures(UI.Feature.Annotations);
+
+      setInstance(instance);
+
+      documentViewer.addEventListener("documentLoaded", async () => {
+        const doc = documentViewer.getDocument();
+        await doc.documentCompletePromise();
+        documentViewer.updateView();
+        const keys = await doc.getTemplateKeys("schema");
+
+        // await doc.applyTemplateValues(values);
+        console.log({ doc, keys });
+
+        setKeys(keys);
+      });
+    });
+  }, []);
+
+  const loadDoc = async () => {
+    setKeys(null);
+    setLoading(true);
+    await instance.loadDocument(
+      `${window.location.origin}/documents/template-${template}/template.docx`,
+      {
+        officeOptions: {
+          doTemplatePrep: true,
+        },
+      }
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (instance && template > 0) {
+      loadDoc();
+    }
+    if (template === 0) {
+      setKeys(null);
+    }
+  }, [instance, template]);
 
   const prepare = () => {
     if (assignees.length > 0) {
@@ -73,6 +188,11 @@ const Assign = () => {
     dispatch(setKey({ value: event.value }));
   };
 
+  const handleInitiatorForm = (data = {}) => {
+    console.log({ ...initiatorForm, ...data });
+    dispatch(setInitiatorForm({ value: { ...initiatorForm, ...data } }));
+  };
+
   useEffect(() => {
     setLitAuth(getAuthSig());
     dispatch(setKey({ value: "" }));
@@ -82,12 +202,76 @@ const Assign = () => {
     setLitMessage("");
   }, [contractEncryption]);
 
-  console.log({ wallet });
+  console.log({ wallet, loading, keys, initiatorForm });
 
   return (
     <div>
+      <div className="webviewer" ref={viewer} style={{ height: "0vh" }}></div>
       <Box padding={3}>
         <Container>
+          <Box padding={3}>
+            <Heading size="md">Contract template</Heading>
+          </Box>
+          <Box padding={2}>
+            <SelectTemplate />
+          </Box>
+
+          <Box padding={3}>
+            {keys?.keys?.initiator && (
+              <Box>
+                <Box padding={2}>
+                  <TextField
+                    id="initiator-field1"
+                    name="field1"
+                    onChange={(event) =>
+                      handleInitiatorForm({ field1: event.value })
+                    }
+                    placeholder="Field 1"
+                    label="Field 1"
+                    value={initiatorForm?.field1 ?? ""}
+                    type="text"
+                  />
+                </Box>
+
+                <Box padding={2}>
+                  <TextField
+                    id="initiator-field2"
+                    name="field2"
+                    onChange={(event) =>
+                      handleInitiatorForm({ field2: event.value })
+                    }
+                    placeholder="Field 2"
+                    label="Field 2"
+                    value={initiatorForm?.field2 ?? ""}
+                    type="text"
+                  />
+                </Box>
+
+                <Box padding={2}>
+                  <Checkbox
+                    checked={initiatorForm?.cond_field1 ?? false}
+                    id="checkbox"
+                    label="cond_field1"
+                    onChange={({ checked }) =>
+                      handleInitiatorForm({ cond_field1: checked })
+                    }
+                  />
+                </Box>
+
+                <Box padding={2}>
+                  <Checkbox
+                    checked={initiatorForm?.cond_field2 ?? false}
+                    id="checkbox"
+                    label="cond_field2"
+                    onChange={({ checked }) =>
+                      handleInitiatorForm({ cond_field2: checked })
+                    }
+                  />
+                </Box>
+              </Box>
+            )}
+          </Box>
+
           <Box padding={3}>
             <Heading size="md">Who needs to sign?</Heading>
           </Box>
